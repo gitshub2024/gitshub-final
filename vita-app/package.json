@@ -1,0 +1,45 @@
+{
+  "name": "GitsHub",
+  "version": "1.0.0",
+  "description": "<!-- LATEST ANNOUNCEMENTS -->",
+  "main": "index.js",
+  "scripts": {
+    "install-client": "cd client && npm install",
+    "install-server": "cd api && npm install",
+    "install-admin": "cd ../vita-admin && npm install",
+    "remove-client": "cd client && rm -rf node_modules",
+    "remove-server": "cd api && rm -rf node_modules",
+    "remove-admin": "cd ../vita-admin && rm -rf node_modules",
+    "install-modules": "npm install && npm run install-client && npm run install-server",
+    "install-modules-full": "npm install && npm run install-client && npm run install-server && npm run install-admin",
+    "remove-modules": "rm -rf node_modules && npm run remove-client && npm run remove-server",
+    "remove-modules-full": "rm -rf node_modules && npm run remove-client && npm run remove-server && npm run remove-admin",
+    "client": "cd client && npm run start",
+    "server": "cd api && npm run dev",
+    "server:slow": "cd api && npm run dev-slow",
+    "admin": "cd ../vita-admin && npm run start",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev:ts": "concurrently \"npm run server:slow\" \"npm run client\"",
+    "dev-full": "concurrently \"npm run server\" \"npm run client\" \"npm run admin\"",
+    "pretty": "cd api && npm run pretty && cd ../client && npm run pretty",
+    "pre-commit": "cd api && npm run pre-commit && cd ../client && npm run pre-commit",
+    "build": "cd api && npm run dev && cd ../client && npm run build",
+    "start:production": "cd api && npm run start:production && cd ../client && npm run start:production",
+    "prepare": "husky install"
+  },
+  "keywords": [],
+  "author": "GitsHub",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^6.4.0",
+    "husky": "^7.0.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run pre-commit"
+    }
+  },
+  "dependencies": {
+    "uuid": "^11.0.5"
+  }
+}

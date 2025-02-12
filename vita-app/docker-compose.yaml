@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  client:
+    image: gitshub/vita
+    ports:
+      - 80:80
+
+  server:
+    image: gitshub/vita-server
+    ports:
+      - '5000:5000'
+    environment:
+      - PORT=5000
