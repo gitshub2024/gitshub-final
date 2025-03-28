@@ -193,29 +193,22 @@ const jwtLogin = async (req: Request, res: Response) => {
 };
 
 const jwtSignup = async (req: Request, res: Response) => {
-  const { email, password, first_name, last_name, mentor, inviteCode } =
-    req.body;
+  const { email, password, first_name, last_name, mentor, inviteCode } = req.body;
 
   if (FEATURE_FLAGS.waitlist) {
     if (!mentor) {
       const invite = await Waitlist.findOne({ inviteCode });
-
       if (!invite || (invite.email !== email && invite.email !== '*')) {
-        return res.status(401).json({
-          error: 'Invalid or used invite code',
-        });
+        return res.status(401).json({ error: 'Invalid or used invite code' });
       }
-
       if (invite.email === email) {
         await invite.remove();
       }
     }
   }
 
-  if (!/^[A-Za-z0-9._%+-]+@gmail.com$/i.test(email) && !mentor) {
-    return res.status(400).json({
-      error: 'You must use a Saintgits email address',
-    });
+  if (!/^[A-Za-z0-9._%+-]+@saintgits.org$/i.test(email) && !mentor) {
+    return res.status(400).json({ error: 'You must use a Saintgits email address' });
   }
 
   const user = new UserModel({
@@ -229,16 +222,14 @@ const jwtSignup = async (req: Request, res: Response) => {
   const presentUser = await UserModel.findOne({ email });
   if (presentUser) {
     if (presentUser.verified) {
-      return res
-        .status(401)
-        .json({ isLoggedIn: false, error: { email: 'User already exists.' } });
+      return res.status(401).json({ isLoggedIn: false, error: { email: 'User already exists.' } });
     }
-
     return await sendVerificationMail(res, presentUser);
   }
 
   await user.save();
 
+  // Don’t log in yet; just send verification email
   return await sendVerificationMail(res, user);
 };
 
@@ -312,40 +303,67 @@ const changePassword = async (req: Request, res: Response) => {
 
 const verifyEmail = async (req: Request, res: Response) => {
   const token = req.query.token as string;
+
   try {
+    // Verify the JWT token
     const { user_id } = jwt.verify(
       token,
       EMAIL_VERIFICATION_JWT.secret,
     ) as JwtPayload;
 
+    // Find the user by ID and token
     const user = await UserModel.findOne({
       $and: [{ _id: user_id }, { token }],
     });
 
-    if (user?.verified === true) {
-      return res.status(200).json({
-        success: true,
-      });
-    }
-
+    // If user doesn’t exist, return invalid token error
     if (!user) {
       return res.status(401).json({
+        success: false,
         isLoggedIn: false,
-        message: 'Invalid Token',
+        message: 'Invalid or expired token',
       });
     }
 
+    // If already verified, return success without changes
+    if (user.verified === true) {
+      const jwtToken = user.issueToken(); // Assuming this method exists
+      res.cookie('jwt', jwtToken, {
+        httpOnly: true,
+        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+      });
+      return res.status(200).json({
+        success: true,
+        isLoggedIn: true,
+        user: user.toObject(),
+      });
+    }
+
+    // Update user status
     user.verified = true;
-    // user.token = '';
+    user.signup_completed = true; // Complete signup now
+    user.token = undefined; // Clear the verification token
     await user.save();
 
+    // Log the user in by issuing a JWT
+    const jwtToken = user.issueToken(); // Assuming this method exists
+    res.cookie('jwt', jwtToken, {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days
+    });
+
+    // Return success response with user data
     return res.status(200).json({
       success: true,
+      isLoggedIn: true,
+      user: user.toObject(),
     });
   } catch (err) {
-    res.status(401).json({
+    console.error('Email verification failed:', err);
+    return res.status(401).json({
+      success: false,
       isLoggedIn: false,
-      message: 'Invalid token.',
+      message: 'Invalid or expired token',
     });
   }
 };
@@ -421,14 +439,13 @@ const logout = (req: Request, res: Response) => {
 const registerUser = async (req: Request, res: Response) => {
   const data = parseFormData(req.body);
 
-  if (!req.user) {
-    return res.status(401).json({
+  const user = await UserModel.findOne({ email: data.email });
+  if (!user) {
+    return res.status(404).json({
       success: false,
-      message: 'You are not logged in',
+      message: 'User not found',
     });
   }
-
-  const user = req.user as Document & UserSchemaType;
 
   user.first_name = data.first_name;
   user.last_name = data.last_name;
@@ -439,7 +456,14 @@ const registerUser = async (req: Request, res: Response) => {
   };
   user.graduation_year = data.graduation_year;
   user.stream = data.stream;
-  user.phone = data.phoneCode.value.phone + data.phone;
+
+  // Safely handle phoneCode
+  if (data.phoneCode && data.phoneCode.value && data.phoneCode.value.phone && data.phone) {
+    user.phone = data.phoneCode.value.phone + data.phone;
+  } else {
+    user.phone = data.phone || ''; // Fallback to just phone or empty string
+  }
+
   user.bio = data.bio;
   user.timezone = data.timezone;
 
@@ -452,23 +476,16 @@ const registerUser = async (req: Request, res: Response) => {
         _id: new Types.ObjectId(),
       })),
       topics: data.topics?.map((topic: SelectOption) => topic.value),
-      expertise: data.expertise?.map(
-        (expertise: SelectOption) => expertise.value,
-      ),
-      languages: data.languages?.map(
-        (language: SelectOption) => language.value,
-      ),
+      expertise: data.expertise?.map((expertise: SelectOption) => expertise.value),
+      languages: data.languages?.map((language: SelectOption) => language.value),
       linkedIn: data.linkedin,
       twitter: data.twitter,
       countryCode: data.countryCode,
     });
 
     await mentor.save();
-
     user.mentor_information = mentor._id;
   }
-
-  user.signup_completed = true;
 
   try {
     await user.save();
@@ -479,7 +496,7 @@ const registerUser = async (req: Request, res: Response) => {
     });
   }
 
-  return res.json(user);
+  return res.json({ success: true, user, message: 'Profile saved, please verify your email' });
 };
 
 const devLogin = async (req: Request, res: Response) => {

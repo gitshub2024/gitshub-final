@@ -134,7 +134,6 @@ const ProfileStep: React.FC<{
           return;
         }
 
-        // Max size of file is 600Kb
         if (file?.size > 600000) {
           toast.error('Please upload an image of size smaller than 600KB.');
           return;
@@ -191,7 +190,8 @@ const ProfileStep: React.FC<{
       spacing={3}
       mt={2}
       component="form"
-      onSubmit={handleSubmit(onSubmit)}>
+      onSubmit={handleSubmit(onSubmit)}
+    >
       <Typography variant="h4">Tell us about yourself</Typography>
       <Stack>
         <Typography variant="body2" mb={1}>
@@ -204,7 +204,8 @@ const ProfileStep: React.FC<{
           p={2}
           borderRadius="4px"
           borderColor="#767676"
-          alignItems="center">
+          alignItems="center"
+        >
           <Avatar
             sx={{ width: '50px', height: '50px' }}
             src={avatarSrc || auth.user?.avatar?.url}
@@ -214,7 +215,8 @@ const ProfileStep: React.FC<{
               <StyledButton
                 variant="contained"
                 sx={{ flex: 0.4 }}
-                onClick={() => profilePicRef.current?.click()}>
+                onClick={() => profilePicRef.current?.click()}
+              >
                 Upload
               </StyledButton>
               <StyledTextField
@@ -232,7 +234,8 @@ const ProfileStep: React.FC<{
               <StyledButton
                 variant="outlined"
                 sx={{ flex: 0.2 }}
-                onClick={onRemove}>
+                onClick={onRemove}
+              >
                 Remove
               </StyledButton>
             </Stack>
@@ -329,7 +332,6 @@ const ProfileStep: React.FC<{
                               ...base,
                               width: '150px',
                               border: 0,
-                              // This line disable the blue border
                               boxShadow: 'none',
                             }),
                           }}
@@ -343,8 +345,6 @@ const ProfileStep: React.FC<{
                             },
                             label: `+${country.phone}`,
                           }))}
-                          // getOptionLabel={(option) => option.label.code}
-                          // getOptionValue={(option: any) => option.value.phone}
                           formatOptionLabel={(option: any) => (
                             <Stack direction="row" alignItems="center">
                               <img
@@ -368,28 +368,30 @@ const ProfileStep: React.FC<{
             )}
           />
         </Stack>
-        <Stack flexGrow={1}>
-          <Typography variant="body2">Graduation year</Typography>
-          <Controller
-            name="graduation_year"
-            control={control}
-            defaultValue={props.hydrate?.graduation_year || ''}
-            rules={{
-              required: 'Graduation Year is Required',
-              pattern: { value: /^[0-9]{4}$/, message: 'Invalid Year' },
-              min: { value: minGraduationYear, message: 'Invalid Year' },
-              max: { value: maxGraduationYear, message: 'Invalid Year' },
-            }}
-            render={({ field }) => (
-              <StyledTextField
-                {...field}
-                error={Boolean(errors.graduation_year)}
-                helperText={errors.graduation_year?.message}
-                placeholder="Enter your graduation year"
-              />
-            )}
-          />
-        </Stack>
+        {!props.isMentor && (
+          <Stack flexGrow={1}>
+            <Typography variant="body2">Graduation year</Typography>
+            <Controller
+              name="graduation_year"
+              control={control}
+              defaultValue={props.hydrate?.graduation_year || ''}
+              rules={{
+                required: 'Graduation Year is Required',
+                pattern: { value: /^[0-9]{4}$/, message: 'Invalid Year' },
+                min: { value: minGraduationYear, message: 'Invalid Year' },
+                max: { value: maxGraduationYear, message: 'Invalid Year' },
+              }}
+              render={({ field }) => (
+                <StyledTextField
+                  {...field}
+                  error={Boolean(errors.graduation_year)}
+                  helperText={errors.graduation_year?.message}
+                  placeholder="Enter your graduation year"
+                />
+              )}
+            />
+          </Stack>
+        )}
       </Stack>
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
         <Stack flexGrow={1} position="relative" sx={{ minWidth: '50%' }}>
@@ -462,7 +464,8 @@ const ProfileStep: React.FC<{
           type="submit"
           variant="contained"
           sx={{ flex: 0.5 }}
-          disabled={mutation.isLoading}>
+          disabled={mutation.isLoading}
+        >
           {mutation.isLoading ? (
             <CircularProgress variant="indeterminate" sx={{ width: '50px' }} />
           ) : (

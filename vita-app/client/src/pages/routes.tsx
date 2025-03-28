@@ -1,6 +1,8 @@
 import React, { Suspense, useEffect, lazy } from 'react';
 import 'react-toastify/dist/ReactToastify.css';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
+import { useRecoilValue } from 'recoil'; // Import Recoil hook
+import { authState } from 'store'; // Import authState
 import AuthPage from 'pages/Auth';
 import UserPage from 'pages/UserPage';
 import SearchPage from 'pages/SearchPage';
@@ -9,7 +11,6 @@ import usePageTracking from 'utils/hooks/use-page-tracking';
 import useHttp from 'hooks/useHttp';
 import { SERVER_URL } from 'config.keys';
 import { useSetRecoilState } from 'recoil';
-import { authState } from 'store';
 import { toast, ToastContainer } from 'react-toastify';
 import axios from 'axios';
 import ProtectedRoute from 'service/ProtectedRoute';
@@ -31,6 +32,7 @@ const App = () => {
   const { pathname } = useLocation();
   const { loading, sendRequest } = useHttp(true);
   const setAuthState = useSetRecoilState(authState);
+  const auth = useRecoilValue(authState); // Access auth state here
   usePageTracking();
   useMetaData();
 
@@ -55,9 +57,7 @@ const App = () => {
                 </p>
               </div>
             ),
-            {
-              autoClose: false,
-            },
+            { autoClose: false },
           );
         }
       },
@@ -71,27 +71,26 @@ const App = () => {
       <ToastContainer position="bottom-left" />
       <Banner />
       <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route element={<ProtectedRoute redirectTo="/dashboard" inverse />}>
-          <Route path="/auth" element={<AuthPage />} />
-        </Route>
-
-        <Route path="/search/" element={<SearchPage />} />
-        <Route path="/user/:id" element={<UserPage />} />
-        <Route element={<ProtectedRoute isRegisteredGuard />}>
-          <Route path="/dashboard" element={<Dashboard />}>
-            <Route path="" element={<Bookings />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Route>
-        <Route element={<ProtectedRoute inverse redirectTo="/" />}>
-          <Route path="/email-verification" element={<EmailVerification />} />
-        </Route>
-        <Route path="/registration-form" element={<Signup />} />
-        <Route path="/reset-password" element={<ForgotPassword />} />
-        <Route path="/join-waitlist" element={<WaitListPage />} />
-        <Route path="*" element={<Error404 />} />
-      </Routes>
+  <Route path="/" element={<Landing />} />
+  <Route element={<ProtectedRoute redirectTo="/dashboard" inverse />}>
+    <Route path="/auth" element={<AuthPage />} />
+  </Route>
+  <Route path="/search/" element={<SearchPage />} />
+  <Route path="/user/:id" element={<UserPage />} />
+  <Route element={<ProtectedRoute isRegisteredGuard />}>
+    <Route path="/dashboard" element={<Dashboard />}>
+      <Route path="" element={<Bookings />} />
+      <Route path="settings" element={<Settings />} />
+    </Route>
+  </Route>
+  <Route element={<ProtectedRoute inverse redirectTo="/" />}>
+    <Route path="/email-verification" element={<EmailVerification />} />
+  </Route>
+  <Route path="/registration-form" element={<Signup />} /> {/* Unprotected */}
+  <Route path="/reset-password" element={<ForgotPassword />} />
+  <Route path="/join-waitlist" element={<WaitListPage />} />
+  <Route path="*" element={<Error404 />} />
+</Routes>
     </Suspense>
   );
 };

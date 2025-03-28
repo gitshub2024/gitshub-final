@@ -1,5 +1,5 @@
 import React from 'react';
-import { useRecoilState } from 'recoil';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FieldValues } from 'react-hook-form';
 import { Card, Stepper, Step, StepLabel, LinearProgress } from '@mui/material';
 import { LocalizationProvider } from '@mui/lab';
@@ -7,39 +7,51 @@ import AdapterDateFns from '@mui/lab/AdapterDateFns';
 import ExperienceStep from './ExperienceStep';
 import ProfileStep from './ProfileStep';
 import AvailabilityStep from './AvailabilityStep';
-import { authState } from 'store';
 import { convertToFormData } from 'utils/api-helper';
 import axios from 'axios';
-import { APP_NAME, SERVER_URL } from 'config.keys';
+import { SERVER_URL } from 'config.keys';
 import useHttp from 'hooks/useHttp';
 import { toast } from 'react-toastify';
-import { useNavigate } from 'react-router-dom';
 import { transformSlots } from 'utils/helper';
 import moment from 'moment';
 import useLocalState from 'hooks/useLocalState';
 import { UserType } from 'types';
 
-const steps = ['Profile', 'Experience', 'Availability'];
-
 const SignUpSteps: React.FC = () => {
   const { loading, sendRequest } = useHttp();
   const navigate = useNavigate();
-  const [auth, setAuth] = useRecoilState(authState);
-  const userId = auth.user?._id;
+  const location = useLocation();
+  const newlySignedUp = location.state?.newlySignedUp || false;
+  const email = location.state?.email; // Email passed from signup
+
+  console.log('Location State:', location.state);
+  console.log('Email from signup:', email);
+
+  // If no email is provided, redirect to signup
+  if (!email) {
+    console.warn('No email provided in location state, redirecting to auth...');
+    navigate('/auth');
+    return null;
+  }
+
+  // Use temporary keys since no userId exists yet
   const [formData, setFormData] = useLocalState<{
     [key: number]: FieldValues;
-  }>(`${userId}-register-form`, {
+  }>('-register-form', {
     0: {
-      first_name: auth.user?.first_name,
-      last_name: auth.user?.last_name,
-      email: auth.user?.email,
+      email: email || '',
+      first_name: '',
+      last_name: '',
+      is_mentor: false, // Default to false, updated by ProfileStep
     },
   });
-  const [activeStep, setActiveStep] = useLocalState(`${userId}-active-step`, 0);
-  const [interests, setInterests] = useLocalState<string[]>(
-    `${userId}-interests`,
-    [],
-  );
+  const [activeStep, setActiveStep] = useLocalState('-active-step', 0);
+  const [interests, setInterests] = useLocalState<string[]>('-interests', []);
+
+  // Dynamic steps based on is_mentor
+  const steps = formData[0]?.is_mentor
+    ? ['Profile', 'Experience', 'Availability']
+    : ['Profile'];
 
   const getTopicsArray = (topics: any) => {
     const topicsArray: any[] = [];
@@ -48,16 +60,23 @@ const SignUpSteps: React.FC = () => {
         topicsArray.push(topic);
       }
     }
-
     return topicsArray;
   };
 
   const onContinue = (step: number, data: FieldValues) => {
-    if (!auth.user!.is_mentor && step === 0) {
+    console.log('Step:', step, 'Data:', data);
+
+    if (step === steps.length - 1) {
       const apiData = convertToFormData({
-        ...data,
+        ...formData[0],
+        ...(formData[0].is_mentor && {
+          ...formData[1],
+          timeSlots: transformSlots(formData[2]?.slots || []),
+          topics: getTopicsArray(formData[1]?.topics || []),
+        }),
         interests,
         timezone: moment.tz.guess(),
+        email, // Ensure email is included
       });
 
       sendRequest(
@@ -65,53 +84,19 @@ const SignUpSteps: React.FC = () => {
           const response = await axios.post<UserType>(
             `${SERVER_URL}/api/register`,
             apiData,
-            {
-              withCredentials: true,
-            },
+            { withCredentials: true },
           );
-
           return response.data;
         },
         (data: UserType) => {
-          localStorage.removeItem(`${userId}-register-form`);
-          localStorage.removeItem(`${userId}-active-step`);
-          localStorage.removeItem(`${userId}-interests`);
-          setAuth((prev) => ({ ...prev, user: data }));
-          toast.success(
-            `You're all set now! You can now explore the ${APP_NAME} community.`,
-          );
-          navigate('/dashboard');
+          localStorage.removeItem('-register-form');
+          localStorage.removeItem('-active-step');
+          localStorage.removeItem('-interests');
+          toast.success(`Please verify your email to continue.`);
+          navigate('/email-verification', { state: { email } });
         },
-      );
-    } else if (step === steps.length - 1) {
-      formData[step] = data;
-      const apiData = convertToFormData({
-        ...formData[0],
-        ...formData[1],
-        timeSlots: transformSlots(formData[2].slots),
-        interests,
-        topics: getTopicsArray(formData[1].topics),
-        timezone: moment.tz.guess(),
-      });
-
-      sendRequest(
-        async () => {
-          const response = await axios.post(
-            `${SERVER_URL}/api/register`,
-            apiData,
-            {
-              withCredentials: true,
-            },
-          );
-
-          return response.data;
-        },
-        (data: UserType) => {
-          localStorage.removeItem(`${userId}-register-form`);
-          localStorage.removeItem(`${userId}-active-step`);
-          localStorage.removeItem(`${userId}-interests`);
-          setAuth((prev) => ({ ...prev, user: data }));
-          navigate('/dashboard', { state: { newlyCreated: true } });
+        (error: any) => {
+          toast.error(`Registration failed: ${error.response?.data?.message || 'Unknown error'}`);
         },
       );
     } else {
@@ -124,7 +109,6 @@ const SignUpSteps: React.FC = () => {
   };
 
   const onBack = (step: number, data: FieldValues) => {
-    // For preserving the data.
     setFormData({
       ...formData,
       [step]: { ...data },
@@ -133,6 +117,7 @@ const SignUpSteps: React.FC = () => {
   };
 
   const renderStep = (step: number) => {
+    console.log('Rendering step:', step);
     switch (step) {
       case 0:
         return (
@@ -141,7 +126,7 @@ const SignUpSteps: React.FC = () => {
             hydrate={formData[step]}
             interests={interests}
             setInterests={setInterests}
-            isMentor={auth.user?.is_mentor || false}
+            isMentor={formData[0]?.is_mentor || false}
           />
         );
       case 1:
@@ -174,23 +159,16 @@ const SignUpSteps: React.FC = () => {
         py: 5,
         borderRadius: '8px',
         position: 'relative',
-        width: {
-          sm: '100%',
-          md: '60%',
-        },
-      }}>
+        width: { sm: '100%', md: '60%' },
+      }}
+    >
       {loading && (
         <LinearProgress
           variant="indeterminate"
-          sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-          }}
+          sx={{ position: 'absolute', top: 0, left: 0, width: '100%' }}
         />
       )}
-      {auth.user!.is_mentor && (
+      {formData[0]?.is_mentor && (
         <Stepper activeStep={activeStep} alternativeLabel sx={{ mt: 2 }}>
           {steps.map((label) => (
             <Step key={label}>

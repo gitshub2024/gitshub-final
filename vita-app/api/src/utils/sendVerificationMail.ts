@@ -8,6 +8,9 @@ const sendVerificationMail = async (res: Response, user: UserSchemaType) => {
   const verificationToken = user.createVerificationToken();
   const verificationUrl = `${CLIENT_URL}/email-verification?token=${verificationToken}`;
 
+  console.log(`Preparing to send verification email to: ${user.email}`);
+  console.log(`Verification URL: ${verificationUrl}`);
+
   try {
     const emailId = await sendEmail(
       user.email,
@@ -20,16 +23,17 @@ const sendVerificationMail = async (res: Response, user: UserSchemaType) => {
       }),
     );
 
+    console.log(`Verification email sent successfully to ${user.email}. Email ID: ${emailId}`);
+
     return res.status(200).json({
       success: true,
       emailId,
     });
   } catch (err) {
-    console.log(err);
-    return res.status(400).json({
-      error: {
-        email: 'Invalid email address',
-      },
+    console.error(`Failed to send verification email to ${user.email}:`, err);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to send verification email. Please try again later.',
     });
   }
 };

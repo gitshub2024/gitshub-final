@@ -87,22 +87,20 @@ const AuthForm: React.FC = () => {
           const { data } = await axios.post(
             `${SERVER_URL}/api/auth/login`,
             formData,
-            {
-              withCredentials: true,
-            },
+            { withCredentials: true },
           );
           return data;
         },
         (data: any) => {
           setAuthState(data);
           if (data.emailId) {
-            return navigate('/email-verification', {
-              state: { email: formData.email },
-            });
+            return navigate('/email-verification', { state: { email: formData.email } });
           }
 
           if (data.isLoggedIn && !data.user.signup_completed) {
             navigate('/registration-form');
+          } else if (data.isLoggedIn && !data.user.verified) {
+            navigate('/email-verification', { state: { email: formData.email } });
           } else {
             navigate('/');
           }
@@ -114,16 +112,14 @@ const AuthForm: React.FC = () => {
           const { data } = await axios.post(
             `${SERVER_URL}/api/auth/signup`,
             { ...formData, mentor: role === 'mentor' },
-            {
-              withCredentials: true,
-            },
+            { withCredentials: true },
           );
           return data;
         },
         (data: any) => {
           if (!data.success) return;
-          setAuthState(data);
-          navigate('/email-verification', { state: { email: formData.email } });
+          setAuthState({ isLoggedIn: false, user: null }); // Not logged in yet
+          navigate('/registration-form', { state: { email: formData.email, newlySignedUp: true } });
         },
       );
     }

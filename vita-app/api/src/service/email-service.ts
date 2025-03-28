@@ -16,7 +16,7 @@ export const sendEmail = async (
   const transporter = nodemailer.createTransport({
     host: EMAIL_HOST,
     port: EMAIL_PORT,
-    secure: true,
+    secure: EMAIL_PORT === 465, // Secure only for port 465
     auth: {
       user: EMAIL_USER,
       pass: EMAIL_PASS,
@@ -36,7 +36,12 @@ export const sendEmail = async (
       method: 'request',
     };
 
-  const info = await transporter.sendMail(emailOptions);
-
-  return info.messageId;
+  try {
+    const info = await transporter.sendMail(emailOptions);
+    console.log(`Email sent to ${to}. Message ID: ${info.messageId}`);
+    return info.messageId;
+  } catch (error) {
+    console.error(`Failed to send email to ${to}:`, error);
+    throw error; // Propagate error to caller
+  }
 };

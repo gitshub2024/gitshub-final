@@ -25,31 +25,37 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const [searchParams] = useSearchParams();
   const auth = useRecoilValue(authState);
 
+  console.log('ProtectedRoute Auth State:', auth);
+
+  // If not inverse and not logged in, redirect to auth or unprotected route
   if (!inverse && !auth.isLoggedIn) {
     const redirectParam = searchParams.get('redirect');
     if (redirectParam && UNPROTECTED_ROUTES.get(redirectParam)) {
       return <Navigate to={UNPROTECTED_ROUTES.get(redirectParam)!} />;
     }
-
     return <Navigate to={redirectTo ?? '/auth'} />;
   }
 
+  // For routes requiring full registration and verification
   if (isRegisteredGuard) {
     if (!auth.user?.signup_completed) {
       return <Navigate to="/registration-form" />;
     }
-
-    return <Outlet />;
-  }
-
-  if (inverse) {
-    if (auth.isLoggedIn) {
-      return <Navigate to={redirectTo ?? '/'} />;
+    if (!auth.user?.verified) {
+      return <Navigate to="/email-verification" state={{ email: auth.user?.email }} />;
     }
-
     return <Outlet />;
   }
 
+  // Inverse case: redirect logged-in users away from unprotected routes
+  if (inverse) {
+    if (auth.isLoggedIn && auth.user?.signup_completed && auth.user?.verified) {
+      return <Navigate to={redirectTo ?? '/dashboard'} />;
+    }
+    return <Outlet />;
+  }
+
+  // Default case: allow access if logged in
   return <Outlet />;
 };
 
